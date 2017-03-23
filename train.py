@@ -178,11 +178,12 @@ def get_input_data_tensors(reader,
   """
   logging.info("Using batch size of " + str(batch_size) + " for {}ing.".format(nameT))
   with tf.name_scope(nameT+"_input"):
+    print(data_pattern)
     files = gfile.Glob(data_pattern)
     if not files:
       raise IOError("Unable to find {}ing files. data_pattern='".format(nameT) +
                     data_pattern + "'.")
-    logging.info("Number of {}ing files: %s.".format(nameT), str(len(files)))
+    logging.info("Number of "+nameT+"ing files: %s.", str(len(files)))
     filename_queue = tf.train.string_input_producer(
         files, num_epochs=num_epochs, shuffle=True)
     training_data = [
@@ -629,7 +630,8 @@ def get_reader():
                height=FLAGS.height,
                width=FLAGS.width,
                slices=FLAGS.slices,
-                num_classes = FLAGS.vocabulary_size)
+                num_classes = FLAGS.vocabulary_size,
+                input_chanels=FLAGS.input_chanels)
   else:
     raise NotImplementedError()
     

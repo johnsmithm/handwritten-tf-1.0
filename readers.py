@@ -42,7 +42,8 @@ class AIMAggregatedFeatureReader(BaseReader):
                feature_names=["imageInput"],
                height=36,
                width=100,
-               slices=12):
+               slices=12,
+              input_chanels=1):
     """Construct a YT8MAggregatedFeatureReader.
 
     Args:
@@ -60,6 +61,7 @@ class AIMAggregatedFeatureReader(BaseReader):
     self.feature_names = feature_names
     self.height, self.width = height, width
     self.slices = slices
+    self.input_chanels = input_chanels
 
   def prepare_reader(self, filename_queue, batch_size=50):
     """Creates a single reader thread for pre-aggregated YouTube 8M Examples.
@@ -100,7 +102,7 @@ class AIMAggregatedFeatureReader(BaseReader):
     
     feature_map = {'seq_len': tf.FixedLenFeature([1], tf.int64),
                 'target': tf.VarLenFeature(tf.int64),     
-                'imageInput': tf.FixedLenFeature([self.height*self.slices*self.width], tf.float32)}
+                'imageInput': tf.FixedLenFeature([self.height*self.slices*self.width*self.input_chanels], tf.float32)}
     
 
     features = tf.parse_example(serialized_examples, features=feature_map)

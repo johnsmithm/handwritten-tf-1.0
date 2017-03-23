@@ -151,7 +151,7 @@ class LSTMCTCModel(models.BaseModel):
     self.train_b = is_training
         
     imageInputs = tf.reshape(imageInputs , [FLAGS.batch_size*FLAGS.slices,FLAGS.height, FLAGS.width,FLAGS.input_chanels])
-    tf.summary.image("images", imageInputs)
+    #tf.summary.image("images", 255*(tf.reshape(imageInputs , [-1,FLAGS.height, FLAGS.width,1])+0.5))
     with tf.name_scope('convLayers'):
         if True:
             conv4 = self.CNN(imageInputs)
