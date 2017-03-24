@@ -184,7 +184,11 @@ def get_input_data_tensors(reader,
       raise IOError("Unable to find {}ing files. data_pattern='".format(nameT) +
                     data_pattern + "'.")
     logging.info("Number of "+nameT+"ing files: %s.", str(len(files)))
-    filename_queue = tf.train.string_input_producer(
+    if nameT == "test":
+        filename_queue = tf.train.string_input_producer(
+        files, shuffle=True)
+    else:
+        filename_queue = tf.train.string_input_producer(
         files, num_epochs=num_epochs, shuffle=True)
     training_data = [
         reader.prepare_reader(filename_queue,batch_size) for _ in range(num_readers)
