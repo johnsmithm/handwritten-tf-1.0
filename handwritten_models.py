@@ -179,8 +179,10 @@ class LSTMCTCModel(models.BaseModel):
             
     myInitializer = tf.truncated_normal_initializer(mean=0., stddev=.075, seed=None, dtype=tf.float32)
     cell = tf.contrib.rnn.LSTMCell(FLAGS.hidden, state_is_tuple=True,initializer=myInitializer)
-    
-    cell = tf.contrib.rnn.DropoutWrapper(cell,input_keep_prob=keep_prob)
+    keep_prob1 = tf.cond(tf.convert_to_tensor(self.train_b, dtype='bool',name='is_training'),
+                         lambda:tf.constant(keep_prob,name='g1'),
+                         lambda:tf.constant(1.0,name='dd'))
+    cell = tf.contrib.rnn.DropoutWrapper(cell,input_keep_prob=keep_prob1)
     
     stackf = tf.contrib.rnn.MultiRNNCell([cell] * (FLAGS.layers),
                                             state_is_tuple=(FLAGS.rnn_cell[-4:] == "LSTM"))
