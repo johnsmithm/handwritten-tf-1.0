@@ -132,7 +132,7 @@ class LSTMCTCModel(models.BaseModel):
             #outputs = slim.fully_connected(net, self.num_classes, activation_fn=None, normalizer_fn=None, scope='fco')
         return net  
 
-  def create_model(self, model_input, seq_len, vocab_size, target, is_training=True, **unused_params):
+  def create_model(self, model_input, seq_len, vocab_size, target, is_training=True,keep_prob=1., **unused_params):
     """Creates a logistic model.
 
     Args:
@@ -147,7 +147,7 @@ class LSTMCTCModel(models.BaseModel):
     seq_lens = tf.cast(seq_len, tf.int32)      
     targets = tf.cast(target, tf.int32)      
     seq_lens = tf.reshape(seq_lens,[FLAGS.batch_size])  
-    self.keep_prob = 0.9
+    self.keep_prob = keep_prob
     self.train_b = is_training
         
     imageInputs = tf.reshape(imageInputs , [FLAGS.batch_size*FLAGS.slices,FLAGS.height, FLAGS.width,FLAGS.input_chanels])
@@ -179,6 +179,9 @@ class LSTMCTCModel(models.BaseModel):
             
     myInitializer = tf.truncated_normal_initializer(mean=0., stddev=.075, seed=None, dtype=tf.float32)
     cell = tf.contrib.rnn.LSTMCell(FLAGS.hidden, state_is_tuple=True,initializer=myInitializer)
+    
+    cell = tf.contrib.rnn.DropoutWrapper(cell,input_keep_prob=keep_prob)
+    
     stackf = tf.contrib.rnn.MultiRNNCell([cell] * (FLAGS.layers),
                                             state_is_tuple=(FLAGS.rnn_cell[-4:] == "LSTM"))
     stackb = tf.contrib.rnn.MultiRNNCell([cell] * (FLAGS.layers),

@@ -96,6 +96,10 @@ if __name__ == "__main__":
       "regularization_penalty", 1,
       "How much weight to give to the regularization loss (the label loss has "
       "a weight of 1).")
+    
+  flags.DEFINE_float("drop_out", 0.6,
+                     "Which learning rate to start with.")
+
   flags.DEFINE_float("base_learning_rate", 0.001,
                      "Which learning rate to start with.")
   flags.DEFINE_float("learning_rate_decay", 0.95,
@@ -297,7 +301,8 @@ def build_graph(reader,
         seq_len=seq_len,
         vocab_size=reader.num_classes,
         target=target,
-        is_training=train_batch)
+        is_training=train_batch,
+        keep_prob=FLAGS.drop_out)
 
     for variable in slim.get_model_variables():
       tf.summary.histogram(variable.op.name, variable)
@@ -459,6 +464,7 @@ class Trainer(object):
           if self.is_master and global_step_val%FLAGS.display_step==0:
             global_step_val, loss_val, predictions_val, labels_val, labelRateError, decodedPr = sess.run(
               [ global_step, loss, predictions, labels, ler, decodedPrediction])
+            
             global_step_val_te, loss_val_te, predictions_val_te, labels_val_te, labelRateError_te, decodedPr_te = sess.run(
               [ global_step, loss, predictions, labels, ler, decodedPrediction],{train_batch:False})
             
