@@ -73,7 +73,7 @@ class CTCDecoder(object):
     def __init__(self, ctc_decoder='beam_search'):
         self.ctc_decoder = ctc_decoder
         
-    def decode(self, predictions, target, seq_len,k):
+    def decode(self, predictions, seq_len,k):
         #print(target.get_shape().as_list(),'target')
         if self.ctc_decoder == 'greedy':
                 decoded, log_prob = ctc_ops.ctc_greedy_decoder(predictions, seq_len)
@@ -82,12 +82,11 @@ class CTCDecoder(object):
         else:
                 raise Exception("model type not supported: {}".format(self.ctc_decoder))
 
-        # Inaccuracy: label error rate
-        self.decoded = decoded
-        ler = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32),
-                                              target))
-        return decoded, ler
+        return decoded
     
+    def lebelRateError(self, decoded, target):
+        return tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32),
+                                              target))
     def useVocabulary(self, target):
         l = []
         for i in self.decoded:
