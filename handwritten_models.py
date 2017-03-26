@@ -118,8 +118,8 @@ class LSTMCTCModel(models.BaseModel):
             net = slim.max_pool2d(net, [2, 2], scope='pool2')
             net = slim.conv2d(net, 124, [2, 2], scope='conv3')
             net = slim.max_pool2d(net, [2, 1], scope='pool3')
-            #net = slim.conv2d(net, 256, [2, 2], scope='conv4')
-            #net = slim.max_pool2d(net, [2, 1], scope='pool4')
+            net = slim.conv2d(net, 256, [2, 2], scope='conv4')
+            net = slim.max_pool2d(net, [2, 1], scope='pool4')
             #net = slim.flatten(net, scope='flatten3')
 
             # For slim.fully_connected, default argument values are like
@@ -132,7 +132,7 @@ class LSTMCTCModel(models.BaseModel):
             #outputs = slim.fully_connected(net, self.num_classes, activation_fn=None, normalizer_fn=None, scope='fco')
         return net  
 
-  def create_model(self, model_input, seq_len, vocab_size, target, is_training=True,keep_prob=1., **unused_params):
+  def create_model(self, model_input, seq_len, vocab_size, target=None, is_training=True,keep_prob=1., **unused_params):
     """Creates a logistic model.
 
     Args:
@@ -145,7 +145,7 @@ class LSTMCTCModel(models.BaseModel):
       batch_size x num_classes."""
     imageInputs  = tf.cast(model_input, tf.float32)
     seq_lens = tf.cast(seq_len, tf.int32)      
-    targets = tf.cast(target, tf.int32)      
+    #targets = tf.cast(target, tf.int32)      
     seq_lens = tf.reshape(seq_lens,[FLAGS.batch_size])  
     self.keep_prob = keep_prob
     self.train_b = is_training
@@ -178,28 +178,56 @@ class LSTMCTCModel(models.BaseModel):
             x = h_pool2_flat#tf.split(x, FLAGS.slices, 0)
             
     myInitializer = tf.truncated_normal_initializer(mean=0., stddev=.075, seed=None, dtype=tf.float32)
-    cell = tf.contrib.rnn.LSTMCell(FLAGS.hidden, state_is_tuple=True,initializer=myInitializer)
+    
+    if FLAGS.rnn_cell == "LSTM":
+                cell = tf.contrib.rnn.LSTMCell(FLAGS.hidden, state_is_tuple=True,initializer=myInitializer)
+    elif FLAGS.rnn_cell == "BasicLSTM":
+                cell = tf.contrib.rnn.BasicLSTMCell(FLAGS.hidden,forget_bias=1.0,state_is_tuple=True)
+    elif FLAGS.rnn_cell == "GRU":
+                cell = tf.contrib.rnn.GRUCell(FLAGS.hidden)
+    elif FLAGS.rnn_cell == "GRIDLSTM":#does not works
+                cell = tf.contrib.rnn.GridLSTMCell(FLAGS.hidden,
+                                                   use_peepholes=True,state_is_tuple=True,
+                                                   forget_bias=1.0, feature_size = 5,frequency_skip=5,
+                                                   num_frequency_blocks=[102])
+                cell1 = tf.contrib.rnn.GridLSTMCell(FLAGS.hidden,
+                                                   use_peepholes=True,state_is_tuple=True,
+                                                   forget_bias=1.0, feature_size = 5,frequency_skip=5,
+                                                   num_frequency_blocks=[816])
+                cells = [cell,cell1]
+    else:
+                raise Exception("model type not supported: {}".format(FLAGS.rnn_cell))
     keep_prob1 = tf.cond(tf.convert_to_tensor(self.train_b, dtype='bool',name='is_training'),
                          lambda:tf.constant(keep_prob,name='g1'),
                          lambda:tf.constant(1.0,name='dd'))
     cell = tf.contrib.rnn.DropoutWrapper(cell,input_keep_prob=keep_prob1)
     
-    stackf = tf.contrib.rnn.MultiRNNCell([cell] * (FLAGS.layers),
+    stackf = tf.contrib.rnn.MultiRNNCell([cell] * (FLAGS.layers) if FLAGS.rnn_cell[:4] != "GRID" else cells,
                                             state_is_tuple=(FLAGS.rnn_cell[-4:] == "LSTM"))
-    stackb = tf.contrib.rnn.MultiRNNCell([cell] * (FLAGS.layers),
+    stackb = tf.contrib.rnn.MultiRNNCell([cell] * (FLAGS.layers) if FLAGS.rnn_cell[:4] != "GRID" else cells,
                                                 state_is_tuple=(FLAGS.rnn_cell[-4:] == "LSTM"))
     
     self.reset_state_stackf = stackf.zero_state(FLAGS.batch_size, dtype=tf.float32)
             
     self.reset_state_stackb = stackb.zero_state(FLAGS.batch_size, dtype=tf.float32)
     
-    outputs, (self.state_fw, self.state_bw)  = tf.nn.bidirectional_dynamic_rnn(stackf, stackb, x,
+    if True:
+        outputs, (self.state_fw, self.state_bw)  = tf.nn.bidirectional_dynamic_rnn(stackf, stackb, x,
+                                                                                 sequence_length=seq_lens,
+                                                                                 dtype=tf.float32,
+                                                                                 initial_state_fw=self.reset_state_stackf,
+                                                                                 initial_state_bw=self.reset_state_stackb)
+    else:
+        outputs, self.state_fw, self.state_bw  = tf.contrib.rnn.stack_bidirectional_rnn(stackf, stackb, x,
                                                                                  sequence_length=seq_lens,
                                                                                  dtype=tf.float32,
                                                                                  initial_state_fw=self.reset_state_stackf,
                                                                                  initial_state_bw=self.reset_state_stackb)
     #print(outputs[0].get_shape().as_list(),'outputs')
-    y_predict = tf.reshape(tf.concat(outputs, 2), [-1, 2*FLAGS.hidden])
+    if True:
+        y_predict = tf.reshape(tf.concat(outputs, 2), [-1, 2*FLAGS.hidden])
+    else:
+        y_predict = tf.reshape(outputs, [-1, 2*FLAGS.hidden])
     #print(y_predict.get_shape().as_list(),'predict')
     
     with tf.name_scope('Train'):

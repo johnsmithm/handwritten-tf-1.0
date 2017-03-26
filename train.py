@@ -84,7 +84,7 @@ if __name__ == "__main__":
   flags.DEFINE_integer("display_step", 3,
                        "image width")
     
-  flags.DEFINE_integer("display_step_lme", 10,
+  flags.DEFINE_integer("display_step_lme", 6,
                        "image width")
 
   # Training flags.
@@ -288,8 +288,8 @@ def build_graph(reader,
     
   seq_len = tf.cast(seq_len, tf.int32)      
   target = tf.cast(target, tf.int32)
-  imageInput = tf.reshape(imageInput , [FLAGS.batch_size*FLAGS.slices,FLAGS.height, FLAGS.width,FLAGS.input_chanels])  
-  seq_len = tf.reshape(seq_len, [FLAGS.batch_size])
+  imageInput1 = tf.reshape(imageInput , [FLAGS.batch_size*FLAGS.slices,FLAGS.height, FLAGS.width,FLAGS.input_chanels])  
+  seq_len1 = tf.reshape(seq_len, [FLAGS.batch_size])
   tf.summary.histogram("model/input_raw", imageInput)
   
     
@@ -297,10 +297,9 @@ def build_graph(reader,
 
   with tf.name_scope("model"):
     result = model.create_model(
-        imageInput,
-        seq_len=seq_len,
+        imageInput1,
+        seq_len=seq_len1,
         vocab_size=reader.num_classes,
-        target=target,
         is_training=train_batch,
         keep_prob=FLAGS.drop_out)
 
@@ -311,7 +310,7 @@ def build_graph(reader,
     if "loss" in result.keys():
       label_loss = result["loss"]
     else:
-      label_loss = label_loss_fn.calculate_loss(predictions, target, seq_len)
+      label_loss = label_loss_fn.calculate_loss(predictions, target, seq_len1)
     tf.summary.scalar("label_loss", label_loss)
 
     if "regularization_loss" in result.keys():
@@ -339,7 +338,8 @@ def build_graph(reader,
         
     if decoder is not None:
         with tf.name_scope('Prediction'):
-            decodedPrediction, ler = decoder.decode(predictions, target, seq_len,FLAGS.beam_size)
+            decodedPrediction = decoder.decode(predictions, seq_len1,FLAGS.beam_size)
+            ler = decoder.lebelRateError(decodedPrediction,target)
             #voDe = decoder.useVocabulary(target)
 
     # Incorporate the L2 weight penalties etc.
@@ -444,6 +444,8 @@ class Trainer(object):
         saver=saver)
     
     vocabulary = eval_util.read_vocab(FLAGS.vocab_path)
+    vocabulary = sorted(vocabulary, key=lambda word: len(word))
+    
     logging.info("%s: Starting managed session.", task_as_string(self.task))
     with sv.managed_session(target, config=self.config) as sess:
 
@@ -471,7 +473,7 @@ class Trainer(object):
             examples_per_second = len(labels_val) / seconds_per_batch
             
             
-            if global_step_val %FLAGS.display_step_lme == 0:
+            if global_step_val % FLAGS.display_step_lme == 0:
                 lme, newGuess = eval_util.calculate_models_error_withLanguageModel(decodedPr, 
                                                                                    labels_val,
                                                                                    vocabulary, 

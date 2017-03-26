@@ -116,23 +116,54 @@ def show_prediction(dec, label, top_k=3):
         for guess_batch in dec:
             print('pred',[getIndex(j,voc) for j in guess_batch[i] if j])
         print('-'*10)
-
+        
+def split_sequence(seq,delimiter=27,exclude=[0]):         
+    words = []
+    word = []
+    for c in seq:
+            if c == delimiter:
+                if len(word) > 0:
+                    words.append(word)
+                word = []
+            elif c  not in exclude:
+                word.append(c)
+    if len(word) > 0:
+                    words.append(word)
+    return words
+def cut_zeros(word):
+    return [c for c in word if c is not 0]
 def calculate_models_error_withLanguageModel(decodedPr, labels_val, vocabulary,top_k):
     if len(vocabulary) == 0:
         return -1
-    voc_guess = np.zeros(len(decodedPr[0]),dtype=np.int32)
+    #space is 27
+    voc_guess = [i for i in decodedPr[0]]
+    voc_gesss_v = [len(i) for i in decodedPr[0]]
     for guess_batch in decodedPr:
-        for k,guess in enumerate(guess_batch):
-            mini = 1000
-            for i,word in enumerate(vocabulary):
-                ed = levenshtein(word,guess)
-                if ed<mini:
-                    mini = ed
-                    voc_guess[k] = i
+        for k,guess in enumerate(guess_batch):            
+            words = split_sequence(guess)
+            w = []
+            v1 = 0
+            for guessW in words:
+                v = voc_gesss_v[k]
+                w1 = []
+                for i,word in enumerate(vocabulary):
+                    #are sorted by length, => cut the for when we can!!!
+                    if v < abs(len(word) - len(guessW)):
+                        break
+                    ed = levenshtein(word,guessW)
+                    if v>ed:
+                        v = ed
+                        w1 = word
+                if len(w)>0:
+                            w.append(27)
+                w.extend(w1)
+                v1 += v
+            if v1<voc_gesss_v[k]:
+                        voc_gesss_v[k] = v1
+                        voc_guess[k] = w
     err = 0.0
-    newGuess = []
     for k,truth in  enumerate(labels_val):
-        newGuess.append(vocabulary[voc_guess[k]])
-        err += levenshtein(truth, vocabulary[voc_guess[k]])/float(len(truth))
+        thuth = cut_zeros(truth)
+        err += levenshtein(truth, voc_guess[k])/float(len(truth))
     err /= len(labels_val)  
-    return err, newGuess
+    return err, voc_guess

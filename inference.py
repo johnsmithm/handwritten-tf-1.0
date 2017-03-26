@@ -35,8 +35,7 @@ FLAGS = flags.FLAGS
 if __name__ == '__main__':
   flags.DEFINE_string("train_dir", "/tmp/yt8m_model/",
                       "The directory to load the model files from.")
-  flags.DEFINE_string("output_file", "",
-                      "The file to save the predictions to.")
+  
   flags.DEFINE_string(
       "input_data_pattern", "",
       "File glob defining the evaluation dataset in tensorflow.SequenceExample "
@@ -44,35 +43,37 @@ if __name__ == '__main__':
       "sequence feature as well as a 'labels' int64 context feature.")
 
   # Model flags.
-  flags.DEFINE_bool(
-      "frame_features", False,
-      "If set, then --eval_data_pattern must be frame-level features. "
-      "Otherwise, --eval_data_pattern must be aggregated video-level "
-      "features. The model must also be set appropriately (i.e. to read 3D "
-      "batches VS 4D batches.")
+  
   flags.DEFINE_integer(
-      "batch_size", 8192,
+      "batch_size", 50,
       "How many examples to process per batch.")
+  
+  flags.DEFINE_integer("width", 12,
+                       "image width")
+  flags.DEFINE_integer("height", 36,
+                       "image height")
+  flags.DEFINE_integer("slices", 15,
+                       "slices number")
+  
+  flags.DEFINE_integer("vocabulary_size", 29,
+                       "character's number")
+    
+  flags.DEFINE_integer("beam_size", 1,
+                       "guess number")
   flags.DEFINE_string("feature_names", "mean_rgb", "Name of the feature "
                       "to use for training.")
   flags.DEFINE_string("feature_sizes", "1024", "Length of the feature vectors.")
 
-
+  flags.DEFINE_bool(
+      "slice_features", True,
+      "If set, then the input should have 4 dimentions ")
+  flags.DEFINE_integer("input_chanels", 18,
+                       "image width")
   # Other flags.
   flags.DEFINE_integer("num_readers", 1,
                        "How many threads to use for reading input files.")
-  flags.DEFINE_integer("top_k", 20,
-                       "How many predictions to output per video.")
 
-def format_lines(video_ids, predictions, top_k):
-  batch_size = len(video_ids)
-  for video_index in range(batch_size):
-    top_indices = numpy.argpartition(predictions[video_index], -top_k)[-top_k:]
-    line = [(class_index, predictions[video_index][class_index])
-            for class_index in top_indices]
-    line = sorted(line, key=lambda p: -p[1])
-    yield video_ids[video_index].decode('utf-8') + "," + " ".join("%i %f" % pair
-                                                  for pair in line) + "\n"
+
 
 
 def get_input_data_tensors(reader, data_pattern, batch_size, num_readers=1):
@@ -98,21 +99,24 @@ def get_input_data_tensors(reader, data_pattern, batch_size, num_readers=1):
       raise IOError("Unable to find input files. data_pattern='" +
                     data_pattern + "'")
     logging.info("number of input files: " + str(len(files)))
+    print(files)
     filename_queue = tf.train.string_input_producer(
         files, num_epochs=1, shuffle=False)
     examples_and_labels = [reader.prepare_reader(filename_queue)
                            for _ in range(num_readers)]
 
-    video_id_batch, video_batch, unused_labels, num_frames_batch = (
+    imageInput, seq_len , target = (
         tf.train.batch_join(examples_and_labels,
                             batch_size=batch_size,
                             allow_smaller_final_batch = True,
                             enqueue_many=True))
-    return video_id_batch, video_batch, num_frames_batch
+    return imageInput, seq_len , target
 
-def inference(reader, train_dir, data_pattern, out_file_location, batch_size, top_k):
-  with tf.Session() as sess, gfile.Open(out_file_location, "w+") as out_file:
-    video_id_batch, video_batch, num_frames_batch = get_input_data_tensors(reader, data_pattern, batch_size)
+def inference(reader, train_dir, data_pattern, batch_size):
+  with tf.Session() as sess:
+    #imageInput1, seq_len1 , target1 = get_input_data_tensors(reader, data_pattern, batch_size)
+    imageInput, seq_len , target = get_input_data_tensors(reader, data_pattern, batch_size)
+    target_dense = tf.sparse_tensor_to_dense(target)
     latest_checkpoint = tf.train.latest_checkpoint(train_dir)
     if latest_checkpoint is None:
       raise Exception("unable to find a checkpoint at location: %s" % train_dir)
@@ -122,10 +126,15 @@ def inference(reader, train_dir, data_pattern, out_file_location, batch_size, to
     saver = tf.train.import_meta_graph(meta_graph_location, clear_devices=True)
     logging.info("restoring variables from " + latest_checkpoint)
     saver.restore(sess, latest_checkpoint)
-    input_tensor = tf.get_collection("input_batch_raw")[0]
-    num_frames_tensor = tf.get_collection("num_frames")[0]
+    
+    input_tensor = tf.get_collection("input_batch")[0]
+    seq_len_tensor = tf.get_collection("seq_len")[0]
+    labels_tensor = tf.get_collection("labels")[0]
     predictions_tensor = tf.get_collection("predictions")[0]
-
+    train_batch_tensor = tf.get_collection("train_batch")[0]
+    decodedPrediction = []
+    for i in range(FLAGS.beam_size):
+            decodedPrediction.append(tf.get_collection("decodedPrediction{}".format(i))[0])
     # Workaround for num_epochs issue.
     def set_up_init_ops(variables):
       init_op_list = []
@@ -134,32 +143,34 @@ def inference(reader, train_dir, data_pattern, out_file_location, batch_size, to
           init_op_list.append(tf.assign(variable, 1))
           variables.remove(variable)
       init_op_list.append(tf.variables_initializer(variables))
-      return init_op_list
+      return init_op_list   
 
-    sess.run(set_up_init_ops(tf.get_collection_ref(
-        tf.GraphKeys.LOCAL_VARIABLES)))
+    sess.run(set_up_init_ops(tf.get_collection_ref(tf.GraphKeys.LOCAL_VARIABLES)))
 
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
     num_examples_processed = 0
     start_time = time.time()
-    out_file.write("VideoId,LabelConfidencePairs\n")
 
     try:
-      while not coord.should_stop():
-          video_id_batch_val, video_batch_val,num_frames_batch_val = sess.run([video_id_batch, video_batch, num_frames_batch])
-          predictions_val, = sess.run([predictions_tensor], feed_dict={input_tensor: video_batch_val, num_frames_tensor: num_frames_batch_val})
+      while not coord.should_stop() :
+          imageInput_val, seq_len_val, target_dense_val = sess.run([imageInput, seq_len , target_dense ])
+          
+          predictions_val = sess.run(decodedPrediction, 
+                                     feed_dict={input_tensor: imageInput_val,seq_len_tensor:seq_len_val,
+                                               train_batch_tensor: False})
+          print(predictions_val[0])
+          print(target_dense_val)
+          eval_util.show_prediction(predictions_val,target_dense_val)
           now = time.time()
-          num_examples_processed += len(video_batch_val)
-          num_classes = predictions_val.shape[1]
+          num_examples_processed += len(imageInput_val)
+          num_classes = predictions_val[0].shape[1]
           logging.info("num examples processed: " + str(num_examples_processed) + " elapsed seconds: " + "{0:.2f}".format(now-start_time))
-          for line in format_lines(video_id_batch_val, predictions_val, top_k):
-            out_file.write(line)
-          out_file.flush()
-
+          
+          break
 
     except tf.errors.OutOfRangeError:
-        logging.info('Done with inference. The output file was written to ' + out_file_location)
+        logging.info('Done with inference. The output file was written to ')
     finally:
         coord.request_stop()
 
@@ -174,23 +185,25 @@ def main(unused_argv):
   feature_names, feature_sizes = utils.GetListOfFeatureNamesAndSizes(
       FLAGS.feature_names, FLAGS.feature_sizes)
 
-  if FLAGS.frame_features:
-    reader = readers.YT8MFrameFeatureReader(feature_names=feature_names,
-                                            feature_sizes=feature_sizes)
+  if FLAGS.slice_features:
+    reader = readers.AIMAggregatedFeatureReader(
+        feature_names=feature_names, feature_sizes=feature_sizes,
+               height=FLAGS.height,
+               width=FLAGS.width,
+               slices=FLAGS.slices,
+                num_classes = FLAGS.vocabulary_size,
+                input_chanels=FLAGS.input_chanels)
   else:
-    reader = readers.YT8MAggregatedFeatureReader(feature_names=feature_names,
-                                                 feature_sizes=feature_sizes)
+    raise NotImplementedError()
 
-  if FLAGS.output_file is "":
-    raise ValueError("'output_file' was not specified. "
-      "Unable to continue with inference.")
+  
 
   if FLAGS.input_data_pattern is "":
     raise ValueError("'input_data_pattern' was not specified. "
       "Unable to continue with inference.")
 
   inference(reader, FLAGS.train_dir, FLAGS.input_data_pattern,
-    FLAGS.output_file, FLAGS.batch_size, FLAGS.top_k)
+     FLAGS.batch_size)
 
 
 if __name__ == "__main__":
