@@ -20,6 +20,9 @@ import tensorflow as tf
 from tensorflow.python.platform import gfile
    
 def levenshtein(source, target):
+    #todos:\/
+    #add different score for changing a letter into another
+    #add different score for adding a letter before and after another letter ?
     if len(source) < len(target):
         return levenshtein(target, source)
 
@@ -50,7 +53,7 @@ def levenshtein(source, target):
         # Deletion (target grows shorter than source):
         current_row[1:] = np.minimum(
                 current_row[1:],
-                current_row[0:-1] + 1)
+                current_row[0:-1] + 2)
 
         previous_row = current_row
 
@@ -109,12 +112,14 @@ def get_characters():
     vocabulary[''] = nrC
     return vocabulary
 
-def show_prediction(dec, label, top_k=3):
+def show_prediction(dec, label, lmP = None , top_k=3):
     voc = get_characters()
     for i,word in enumerate(label[:top_k]):
-        print('cor:',[getIndex(j,voc) for j in word if j])
+        print('corr:',[getIndex(j,voc) for j in word if j])
         for guess_batch in dec:
-            print('pred',[getIndex(j,voc) for j in guess_batch[i] if j])
+            print('pred:',[getIndex(j,voc) for j in guess_batch[i] if j])
+        if lmP is not None:
+            print('lmp :',[getIndex(j,voc) for j in lmP[i] if j])
         print('-'*10)
         
 def split_sequence(seq,delimiter=27,exclude=[0]):         
@@ -148,7 +153,7 @@ def calculate_models_error_withLanguageModel(decodedPr, labels_val, vocabulary,t
                 w1 = []
                 for i,word in enumerate(vocabulary):
                     #are sorted by length, => cut the for when we can!!!
-                    if v < abs(len(word) - len(guessW)):
+                    if v < len(word) - len(guessW):
                         break
                     ed = levenshtein(word,guessW)
                     if v>ed:

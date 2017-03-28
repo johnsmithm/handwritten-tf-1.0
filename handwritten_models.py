@@ -32,6 +32,12 @@ flags.DEFINE_integer(
 flags.DEFINE_integer(
     "input_chanels", 1,
     "The number of images as input for an image.")
+flags.DEFINE_integer(
+    "stride", -1,
+    "The number of images as input for an image.")
+flags.DEFINE_integer(
+    "Bwidth", 96,
+    "The number of images as input for an image.")
 flags.DEFINE_string(
     "rnn_cell", 'LSTM',
     "The type of recurrent network.")
@@ -131,6 +137,29 @@ class LSTMCTCModel(models.BaseModel):
             #net = slim.dropout(net, is_training=is_training, scope='dropout3')  # 0.5 by default
             #outputs = slim.fully_connected(net, self.num_classes, activation_fn=None, normalizer_fn=None, scope='fco')
         return net  
+    
+  def get_slices(self,inputs, seq_len):
+    #inputs bat x hei x width x chanels
+    
+    #add padding based on stride, width
+    shape = tf.shape(inputs)
+    print(inputs.get_shape().as_list())
+    if shape[2] - FLAGS.width % FLAGS.stride != 0:
+        print((inputs.get_shape().as_list()[2] - FLAGS.width) % FLAGS.stride)
+        inputs = tf.concat([inputs,tf.zeros([shape[0],shape[1],
+                                             (FLAGS.stride -(shape[2] - FLAGS.width) % FLAGS.stride),shape[3]],
+                                            dtype=tf.float32)],2)
+    print(inputs.get_shape().as_list())
+    #return inputs , -1
+    h = []
+    inputsT = tf.transpose(inputs,[2,0,1,3])#w b h c
+    for i in range(FLAGS.slices):
+        g = tf.gather(inputsT, tf.range(FLAGS.width)+tf.constant(i*FLAGS.stride))
+        h.append(g)# w b h c
+    k= tf.stack(h,0)#slices, w, b , h , c
+    
+    return tf.transpose(k,[2,0,3,1,4]), tf.maximum(tf.minimum(tf.floor_div(seq_len,FLAGS.stride),FLAGS.slices),1)
+
 
   def create_model(self, model_input, seq_len, vocab_size, target=None, is_training=True,keep_prob=1., **unused_params):
     """Creates a logistic model.
@@ -143,14 +172,19 @@ class LSTMCTCModel(models.BaseModel):
       A dictionary with a tensor containing the probability predictions of the
       model in the 'predictions' key. The dimensions of the tensor are
       batch_size x num_classes."""
-    imageInputs  = tf.cast(model_input, tf.float32)
+    imageInputs1  = tf.cast(model_input, tf.float32)
     seq_lens = tf.cast(seq_len, tf.int32)      
     #targets = tf.cast(target, tf.int32)      
-    seq_lens = tf.reshape(seq_lens,[FLAGS.batch_size])  
+    seq_lens1 = tf.reshape(seq_lens,[FLAGS.batch_size])  
     self.keep_prob = keep_prob
     self.train_b = is_training
-        
-    imageInputs = tf.reshape(imageInputs , [FLAGS.batch_size*FLAGS.slices,FLAGS.height, FLAGS.width,FLAGS.input_chanels])
+    if FLAGS.stride == -1:    
+        imageInputs = tf.reshape(imageInputs1 , [FLAGS.batch_size*FLAGS.slices,FLAGS.height, FLAGS.width,FLAGS.input_chanels])
+    else:
+        imageInputs2 = tf.reshape(imageInputs1 , [FLAGS.batch_size,FLAGS.height, FLAGS.Bwidth,FLAGS.input_chanels])
+        imageInputs, seq_lens = self.get_slices(imageInputs2, seq_lens1)
+        imageInputs = tf.reshape(imageInputs , [FLAGS.batch_size*FLAGS.slices,FLAGS.height, FLAGS.width,FLAGS.input_chanels])
+        seq_lens = tf.cast(seq_lens, tf.int32)
     #tf.summary.image("images", 255*(tf.reshape(imageInputs , [-1,FLAGS.height, FLAGS.width,1])+0.5))
     with tf.name_scope('convLayers'):
         if True:

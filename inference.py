@@ -50,6 +50,8 @@ if __name__ == '__main__':
   
   flags.DEFINE_integer("width", 12,
                        "image width")
+  flags.DEFINE_integer("Bwidth", 90,
+                       "image width")
   flags.DEFINE_integer("height", 36,
                        "image height")
   flags.DEFINE_integer("slices", 15,
@@ -59,6 +61,9 @@ if __name__ == '__main__':
                        "character's number")
     
   flags.DEFINE_integer("beam_size", 1,
+                       "guess number")
+
+  flags.DEFINE_integer("stride", -1,
                        "guess number")
   flags.DEFINE_string("feature_names", "mean_rgb", "Name of the feature "
                       "to use for training.")
@@ -72,6 +77,10 @@ if __name__ == '__main__':
   # Other flags.
   flags.DEFINE_integer("num_readers", 1,
                        "How many threads to use for reading input files.")
+  flags.DEFINE_string(
+      "vocab_path", "vocabulary.txt",
+      "Which vocabulary to use in order to help the prediction "
+      "in models.py.")
 
 
 
@@ -151,6 +160,9 @@ def inference(reader, train_dir, data_pattern, batch_size):
     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
     num_examples_processed = 0
     start_time = time.time()
+    
+    vocabulary = eval_util.read_vocab(FLAGS.vocab_path)
+    vocabulary = sorted(vocabulary, key=lambda word: len(word))
 
     try:
       while not coord.should_stop() :
@@ -159,9 +171,13 @@ def inference(reader, train_dir, data_pattern, batch_size):
           predictions_val = sess.run(decodedPrediction, 
                                      feed_dict={input_tensor: imageInput_val,seq_len_tensor:seq_len_val,
                                                train_batch_tensor: False})
-          print(predictions_val[0])
-          print(target_dense_val)
-          eval_util.show_prediction(predictions_val,target_dense_val)
+          #print(predictions_val[0])
+          #print(target_dense_val)
+          lme, newGuess = eval_util.calculate_models_error_withLanguageModel(predictions_val, 
+                                                                                   target_dense_val,
+                                                                                   vocabulary, 
+                                                                                   FLAGS.beam_size)
+          eval_util.show_prediction(predictions_val,target_dense_val,newGuess, 30)
           now = time.time()
           num_examples_processed += len(imageInput_val)
           num_classes = predictions_val[0].shape[1]
@@ -189,9 +205,10 @@ def main(unused_argv):
     reader = readers.AIMAggregatedFeatureReader(
         feature_names=feature_names, feature_sizes=feature_sizes,
                height=FLAGS.height,
-               width=FLAGS.width,
+               width=FLAGS.width if FLAGS.stride == -1 else FLAGS.Bwidth,
                slices=FLAGS.slices,
                 num_classes = FLAGS.vocabulary_size,
+                stride = FLAGS.stride,
                 input_chanels=FLAGS.input_chanels)
   else:
     raise NotImplementedError()

@@ -288,7 +288,10 @@ def build_graph(reader,
     
   seq_len = tf.cast(seq_len, tf.int32)      
   target = tf.cast(target, tf.int32)
-  imageInput1 = tf.reshape(imageInput , [FLAGS.batch_size*FLAGS.slices,FLAGS.height, FLAGS.width,FLAGS.input_chanels])  
+  if FLAGS.stride == -1:
+      imageInput1 = tf.reshape(imageInput , [FLAGS.batch_size*FLAGS.slices,FLAGS.height, FLAGS.width,FLAGS.input_chanels])  
+  else:
+      imageInput1 = tf.reshape(imageInput , [FLAGS.batch_size,FLAGS.height, FLAGS.Bwidth,FLAGS.input_chanels]) 
   seq_len1 = tf.reshape(seq_len, [FLAGS.batch_size])
   tf.summary.histogram("model/input_raw", imageInput)
   
@@ -310,6 +313,8 @@ def build_graph(reader,
     if "loss" in result.keys():
       label_loss = result["loss"]
     else:
+      if FLAGS.stride!=-1:
+                seq_len1 = tf.maximum(tf.minimum(tf.floor_div(seq_len1,FLAGS.stride),FLAGS.slices),1)
       label_loss = label_loss_fn.calculate_loss(predictions, target, seq_len1)
     tf.summary.scalar("label_loss", label_loss)
 
@@ -338,6 +343,8 @@ def build_graph(reader,
         
     if decoder is not None:
         with tf.name_scope('Prediction'):
+            if FLAGS.stride!=-1:
+                seq_len1 = tf.maximum(tf.minimum(tf.floor_div(seq_len1,FLAGS.stride),FLAGS.slices),1)
             decodedPrediction = decoder.decode(predictions, seq_len1,FLAGS.beam_size)
             ler = decoder.lebelRateError(decodedPrediction,target)
             #voDe = decoder.useVocabulary(target)
@@ -640,9 +647,10 @@ def get_reader():
     reader = readers.AIMAggregatedFeatureReader(
         feature_names=feature_names, feature_sizes=feature_sizes,
                height=FLAGS.height,
-               width=FLAGS.width,
+               width=FLAGS.width if FLAGS.stride == -1 else FLAGS.Bwidth,
                slices=FLAGS.slices,
                 num_classes = FLAGS.vocabulary_size,
+                stride = FLAGS.stride,
                 input_chanels=FLAGS.input_chanels)
   else:
     raise NotImplementedError()
