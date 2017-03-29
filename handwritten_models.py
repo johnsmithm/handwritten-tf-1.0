@@ -158,7 +158,8 @@ class LSTMCTCModel(models.BaseModel):
         h.append(g)# w b h c
     k= tf.stack(h,0)#slices, w, b , h , c
     
-    return tf.transpose(k,[2,0,3,1,4]), tf.maximum(tf.minimum(tf.floor_div(seq_len,FLAGS.stride),FLAGS.slices),1)
+    return tf.transpose(k,[2,0,3,1,4]), tf.maximum(tf.minimum(\
+        tf.floor_div(tf.maximum(seq_len-FLAGS.width+2*FLAGS.stride,FLAGS.stride),FLAGS.stride),FLAGS.slices),1)
 
 
   def create_model(self, model_input, seq_len, vocab_size, target=None, is_training=True,keep_prob=1., **unused_params):
@@ -185,7 +186,9 @@ class LSTMCTCModel(models.BaseModel):
         imageInputs, seq_lens = self.get_slices(imageInputs2, seq_lens1)
         imageInputs = tf.reshape(imageInputs , [FLAGS.batch_size*FLAGS.slices,FLAGS.height, FLAGS.width,FLAGS.input_chanels])
         seq_lens = tf.cast(seq_lens, tf.int32)
-    #tf.summary.image("images", 255*(tf.reshape(imageInputs , [-1,FLAGS.height, FLAGS.width,1])+0.5))
+        if FLAGS.input_chanels == 1:
+            tf.summary.image("image", (tf.reshape(imageInputs2 , [-1,FLAGS.height, FLAGS.Bwidth,1])),1)
+            tf.summary.image("image-slices", imageInputs, FLAGS.slices)
     with tf.name_scope('convLayers'):
         if True:
             conv4 = self.CNN(imageInputs)

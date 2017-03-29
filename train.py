@@ -314,7 +314,8 @@ def build_graph(reader,
       label_loss = result["loss"]
     else:
       if FLAGS.stride!=-1:
-                seq_len1 = tf.maximum(tf.minimum(tf.floor_div(seq_len1,FLAGS.stride),FLAGS.slices),1)
+                seq_len1 = tf.maximum(tf.minimum(\
+        tf.floor_div(tf.maximum(seq_len1-FLAGS.width+2*FLAGS.stride,FLAGS.stride),FLAGS.stride),FLAGS.slices),1)
       label_loss = label_loss_fn.calculate_loss(predictions, target, seq_len1)
     tf.summary.scalar("label_loss", label_loss)
 
@@ -343,8 +344,6 @@ def build_graph(reader,
         
     if decoder is not None:
         with tf.name_scope('Prediction'):
-            if FLAGS.stride!=-1:
-                seq_len1 = tf.maximum(tf.minimum(tf.floor_div(seq_len1,FLAGS.stride),FLAGS.slices),1)
             decodedPrediction = decoder.decode(predictions, seq_len1,FLAGS.beam_size)
             ler = decoder.lebelRateError(decodedPrediction,target)
             #voDe = decoder.useVocabulary(target)
