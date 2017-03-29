@@ -124,8 +124,8 @@ class LSTMCTCModel(models.BaseModel):
             net = slim.max_pool2d(net, [2, 2], scope='pool2')
             net = slim.conv2d(net, 124, [2, 2], scope='conv3')
             net = slim.max_pool2d(net, [2, 1], scope='pool3')
-            net = slim.conv2d(net, 256, [2, 2], scope='conv4')
-            net = slim.max_pool2d(net, [2, 1], scope='pool4')
+            #net = slim.conv2d(net, 256, [2, 2], scope='conv4')
+            #net = slim.max_pool2d(net, [2, 1], scope='pool4')
             #net = slim.flatten(net, scope='flatten3')
 
             # For slim.fully_connected, default argument values are like
