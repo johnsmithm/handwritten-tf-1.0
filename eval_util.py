@@ -83,7 +83,7 @@ def get_characters():
     vocabulary = {}
     nrC=1
     vocabulary['%%'] = 0 
-    '''
+    
     c = '0'
     
     while ord(c) != ord('9')+1:
@@ -95,18 +95,18 @@ def get_characters():
         vocabulary[c] = nrC
         nrC = nrC + 1
         c = chr(ord(c)+1)
-    '''
+    
     c = 'a'
     while ord(c) != ord('z')+1:
         vocabulary[c] = nrC
         nrC = nrC + 1
         c = chr(ord(c)+1)
-    '''
+    
     cr = [',','.','"','\'',' ','-','#','(',')',';','?',':','*','&','!','/','']
     for c in cr:
         vocabulary[c] = nrC
         nrC = nrC + 1
-    '''
+    
     vocabulary[' '] = nrC
     nrC += 1
     vocabulary[''] = nrC

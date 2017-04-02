@@ -314,8 +314,9 @@ def build_graph(reader,
       label_loss = result["loss"]
     else:
       if FLAGS.stride!=-1:
-                seq_len1 = tf.maximum(tf.minimum(\
+          seq_len1 = tf.maximum(tf.minimum(\
         tf.floor_div(tf.maximum(seq_len1-FLAGS.width+2*FLAGS.stride,FLAGS.stride),FLAGS.stride),FLAGS.slices),1)
+          seq_len1 = tf.ones([FLAGS.batch_size],dtype=tf.int32)*FLAGS.slices
       label_loss = label_loss_fn.calculate_loss(predictions, target, seq_len1)
     tf.summary.scalar("label_loss", label_loss)
 
