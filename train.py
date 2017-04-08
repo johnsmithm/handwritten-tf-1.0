@@ -290,6 +290,8 @@ def build_graph(reader,
   target = tf.cast(target, tf.int32)
   if FLAGS.stride == -1:
       imageInput1 = tf.reshape(imageInput , [FLAGS.batch_size*FLAGS.slices,FLAGS.height, FLAGS.width,FLAGS.input_chanels])  
+  elif FLAGS.width == 1:
+      imageInput1 = tf.reshape(imageInput , [FLAGS.batch_size,FLAGS.slices,FLAGS.height])
   else:
       imageInput1 = tf.reshape(imageInput , [FLAGS.batch_size,FLAGS.height, FLAGS.Bwidth,FLAGS.input_chanels]) 
   seq_len1 = tf.reshape(seq_len, [FLAGS.batch_size])

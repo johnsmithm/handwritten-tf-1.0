@@ -102,6 +102,8 @@ class AIMAggregatedFeatureReader(BaseReader):
     seq_len     = features['seq_len']
     target     = features['target']'''
     d = self.height*self.slices*self.width*self.input_chanels if self.stride ==-1 else self.height*self.width*self.input_chanels
+    if self.width==1:
+        d = self.height*self.slices*self.width*self.input_chanels
     feature_map = {'seq_len': tf.FixedLenFeature([1], tf.int64),
                 'target': tf.VarLenFeature(tf.int64),     
                 'imageInput': tf.FixedLenFeature([d], tf.float32)}
