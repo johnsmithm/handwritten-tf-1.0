@@ -312,53 +312,56 @@ class RNNCTCModel(models.BaseModel):
         x = tf.reshape(imageInputs1 , [FLAGS.batch_size, FLAGS.slices, FLAGS.height])  
         
     
-            
-    myInitializer = tf.truncated_normal_initializer(mean=0., stddev=.075, seed=None, dtype=tf.float32)
-    
-    if FLAGS.rnn_cell == "LSTM":
-                cell = tf.contrib.rnn.LSTMCell(FLAGS.hidden, state_is_tuple=True,initializer=myInitializer)
-    elif FLAGS.rnn_cell == "BasicLSTM":
-                cell = tf.contrib.rnn.BasicLSTMCell(FLAGS.hidden,forget_bias=1.0,state_is_tuple=True)
-    elif FLAGS.rnn_cell == "GRU":
-                cell = tf.contrib.rnn.GRUCell(FLAGS.hidden)
-    elif FLAGS.rnn_cell == "GRIDLSTM":#does not works
-                cell = tf.contrib.rnn.GridLSTMCell(FLAGS.hidden,
-                                                   use_peepholes=True,state_is_tuple=True,
-                                                   forget_bias=1.0, feature_size = 5,frequency_skip=5,
-                                                   num_frequency_blocks=[102])
-                cell1 = tf.contrib.rnn.GridLSTMCell(FLAGS.hidden,
-                                                   use_peepholes=True,state_is_tuple=True,
-                                                   forget_bias=1.0, feature_size = 5,frequency_skip=5,
-                                                   num_frequency_blocks=[816])
-                cells = [cell,cell1]
-    else:
-                raise Exception("model type not supported: {}".format(FLAGS.rnn_cell))
-    keep_prob1 = tf.cond(tf.convert_to_tensor(self.train_b, dtype='bool',name='is_training'),
-                         lambda:tf.constant(keep_prob,name='g1'),
-                         lambda:tf.constant(1.0,name='dd'))
-    cell = tf.contrib.rnn.DropoutWrapper(cell,input_keep_prob=keep_prob1)
-    
-    stackf = tf.contrib.rnn.MultiRNNCell([cell for _ in range(FLAGS.layers)],#* (FLAGS.layers) if FLAGS.rnn_cell[:4] != "GRID" else cells,
-                                            state_is_tuple=(FLAGS.rnn_cell[-4:] == "LSTM"))
-    stackb = tf.contrib.rnn.MultiRNNCell([cell for _ in range(FLAGS.layers)],#* (FLAGS.layers) if FLAGS.rnn_cell[:4] != "GRID" else cells,
+    with tf.name_scope('Train'):        
+        myInitializer = tf.truncated_normal_initializer(mean=0., stddev=.075, seed=None, dtype=tf.float32)
+
+        if FLAGS.rnn_cell == "LSTM":
+                    cellf = tf.contrib.rnn.LSTMCell(FLAGS.hidden, state_is_tuple=True,initializer=myInitializer)
+                    cellb = tf.contrib.rnn.LSTMCell(FLAGS.hidden, state_is_tuple=True,initializer=myInitializer)
+        elif FLAGS.rnn_cell == "BasicLSTM":
+                    cellf = tf.contrib.rnn.BasicLSTMCell(FLAGS.hidden,forget_bias=1.0,state_is_tuple=True)
+                    cellb = tf.contrib.rnn.BasicLSTMCell(FLAGS.hidden,forget_bias=1.0,state_is_tuple=True)
+        elif FLAGS.rnn_cell == "GRU":
+                    cell = tf.contrib.rnn.GRUCell(FLAGS.hidden)
+        elif FLAGS.rnn_cell == "GRIDLSTM":#does not works
+                    cell = tf.contrib.rnn.GridLSTMCell(FLAGS.hidden,
+                                                       use_peepholes=True,state_is_tuple=True,
+                                                       forget_bias=1.0, feature_size = 5,frequency_skip=5,
+                                                       num_frequency_blocks=[102])
+                    cell1 = tf.contrib.rnn.GridLSTMCell(FLAGS.hidden,
+                                                       use_peepholes=True,state_is_tuple=True,
+                                                       forget_bias=1.0, feature_size = 5,frequency_skip=5,
+                                                       num_frequency_blocks=[816])
+                    cells = [cell,cell1]
+        else:
+                    raise Exception("model type not supported: {}".format(FLAGS.rnn_cell))
+        keep_prob1 = tf.cond(tf.convert_to_tensor(self.train_b, dtype='bool',name='is_training'),
+                             lambda:tf.constant(keep_prob,name='g1'),
+                             lambda:tf.constant(1.0,name='dd'))
+        #cellf = tf.contrib.rnn.DropoutWrapper(cellf,input_keep_prob=keep_prob1)
+        #cellb = tf.contrib.rnn.DropoutWrapper(cellb,input_keep_prob=keep_prob1)
+
+        stackf = tf.contrib.rnn.MultiRNNCell([tf.contrib.rnn.DropoutWrapper(tf.contrib.rnn.LSTMCell(FLAGS.hidden, state_is_tuple=True,initializer=myInitializer),input_keep_prob=keep_prob1) for _ in range(FLAGS.layers)],#* (FLAGS.layers) if FLAGS.rnn_cell[:4] != "GRID" else cells,
                                                 state_is_tuple=(FLAGS.rnn_cell[-4:] == "LSTM"))
-    
-    self.reset_state_stackf = stackf.zero_state(FLAGS.batch_size, dtype=tf.float32)
-            
-    self.reset_state_stackb = stackb.zero_state(FLAGS.batch_size, dtype=tf.float32)
-    
-    if True:
-        outputs, (self.state_fw, self.state_bw)  = tf.nn.bidirectional_dynamic_rnn(stackf, stackb, x,
-                                                                                 sequence_length=seq_lens,
-                                                                                 dtype=tf.float32,
-                                                                                 initial_state_fw=self.reset_state_stackf,
-                                                                                 initial_state_bw=self.reset_state_stackb)
-    else:
-        outputs, self.state_fw, self.state_bw  = tf.contrib.rnn.stack_bidirectional_rnn(stackf, stackb, x,
-                                                                                 sequence_length=seq_lens,
-                                                                                 dtype=tf.float32,
-                                                                                 initial_state_fw=self.reset_state_stackf,
-                                                                                 initial_state_bw=self.reset_state_stackb)
+        stackb = tf.contrib.rnn.MultiRNNCell([tf.contrib.rnn.DropoutWrapper(tf.contrib.rnn.LSTMCell(FLAGS.hidden, state_is_tuple=True,initializer=myInitializer),input_keep_prob=keep_prob1) for _ in range(FLAGS.layers)],#* (FLAGS.layers) if FLAGS.rnn_cell[:4] != "GRID" else cells,
+                                                    state_is_tuple=(FLAGS.rnn_cell[-4:] == "LSTM"))
+
+        self.reset_state_stackf = stackf.zero_state(FLAGS.batch_size, dtype=tf.float32)
+
+        self.reset_state_stackb = stackb.zero_state(FLAGS.batch_size, dtype=tf.float32)
+
+        if True:
+            outputs, (self.state_fw, self.state_bw)  = tf.nn.bidirectional_dynamic_rnn(stackf, stackb, x,
+                                                                                     sequence_length=seq_lens,
+                                                                                     dtype=tf.float32,
+                                                                                     initial_state_fw=self.reset_state_stackf,
+                                                                                     initial_state_bw=self.reset_state_stackb)
+        else:
+            outputs, self.state_fw, self.state_bw  = tf.contrib.rnn.stack_bidirectional_rnn(stackf, stackb, x,
+                                                                                     sequence_length=seq_lens,
+                                                                                     dtype=tf.float32,
+                                                                                     initial_state_fw=self.reset_state_stackf,
+                                                                                     initial_state_bw=self.reset_state_stackb)
     #print(outputs[0].get_shape().as_list(),'outputs')
     if True:
         y_predict = tf.reshape(tf.concat(outputs, 2), [-1, 2*FLAGS.hidden])
