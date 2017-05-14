@@ -610,9 +610,9 @@ class LSTMCTCModel(models.BaseModel):
     #cellfd = tf.contrib.rnn.DropoutWrapper(cellf,input_keep_prob=keep_prob1)
     #cellbd = tf.contrib.rnn.DropoutWrapper(cellb,input_keep_prob=keep_prob1)
     
-    stackf = tf.contrib.rnn.MultiRNNCell([cellf for _ in range(FLAGS.layers)] if FLAGS.rnn_cell[:4] != "GRID" else cells,
+    stackf = tf.contrib.rnn.MultiRNNCell([tf.contrib.rnn.DropoutWrapper(tf.contrib.rnn.LSTMCell(FLAGS.hidden, state_is_tuple=True,initializer=myInitializer),input_keep_prob=keep_prob1) for _ in range(FLAGS.layers)] if FLAGS.rnn_cell[:4] != "GRID" else cells,
                                             state_is_tuple=(FLAGS.rnn_cell[-4:] == "LSTM"))
-    stackb = tf.contrib.rnn.MultiRNNCell([cellb for _ in range(FLAGS.layers)] if FLAGS.rnn_cell[:4] != "GRID" else cells,
+    stackb = tf.contrib.rnn.MultiRNNCell([tf.contrib.rnn.DropoutWrapper(tf.contrib.rnn.LSTMCell(FLAGS.hidden, state_is_tuple=True,initializer=myInitializer),input_keep_prob=keep_prob1) for _ in range(FLAGS.layers)] if FLAGS.rnn_cell[:4] != "GRID" else cells,
                                                 state_is_tuple=(FLAGS.rnn_cell[-4:] == "LSTM"))
     
     self.reset_state_stackf = stackf.zero_state(FLAGS.batch_size, dtype=tf.float32)
