@@ -436,6 +436,10 @@ class Trainer(object):
         labels = tf.get_collection("labels")[0]
         train_batch = tf.get_collection("train_batch")[0]
         train_op = tf.get_collection("train_op")[0]
+        reset_state_stackb = tf.get_collection("reset_state_stackb")[0]
+        reset_state_stackf = tf.get_collection("reset_state_stackf")[0]
+        final_state_stackb = tf.get_collection("final_state_stackb")[0]
+        final_state_stackf = tf.get_collection("final_state_stackf")[0]
         decodedPrediction = []
         for i in range(FLAGS.beam_size):
             decodedPrediction.append(tf.get_collection("decodedPrediction{}".format(i))[0])
@@ -459,6 +463,9 @@ class Trainer(object):
     with sv.managed_session(target, config=self.config) as sess:
 
       try:
+        
+        state_stackf = sess.run(reset_state_stackf)
+        state_stackb = sess.run(reset_state_stackb)
         logging.info("%s: Entering training loop.", task_as_string(self.task))
         while (not sv.should_stop()) and (not self.max_steps_reached):
 
@@ -468,16 +475,29 @@ class Trainer(object):
         
           #print(decodedPr,'decoder pr');print(labels_val,'val label')#;print(decV1,'edit dis')
           #todo: add test/evaluation here--add placeholder
+        
+          feed = {}
+          for i, (c, h) in enumerate(reset_state_stackf):
+                    feed[c] = state_stackf[i].c
+                    feed[h] = state_stackf[i].h
+          for i, (c, h) in enumerate(reset_state_stackb):
+                    feed[c] = state_stackb[i].c
+                    feed[h] = state_stackb[i].h
 
           if self.max_steps and self.max_steps <= global_step_val:
             self.max_steps_reached = True
 
           if self.is_master and global_step_val%FLAGS.display_step==0:
-            global_step_val, loss_val, predictions_val, labels_val, labelRateError, decodedPr = sess.run(
-              [ global_step, loss, predictions, labels, ler, decodedPrediction])
+            global_step_val, loss_val, predictions_val, labels_val, labelRateError, decodedPr,\
+            state_stackb,state_stackf = sess.run(
+              [ global_step, loss, predictions, labels, ler, decodedPrediction,
+               final_state_stackb,final_state_stackf],feed)
             
-            global_step_val_te, loss_val_te, predictions_val_te, labels_val_te, labelRateError_te, decodedPr_te = sess.run(
-              [ global_step, loss, predictions, labels, ler, decodedPrediction],{train_batch:False})
+            feed[train_batch]=False
+            global_step_val_te, loss_val_te, predictions_val_te, labels_val_te, labelRateError_te, decodedPr_te,\
+            state_stackb,state_stackf= sess.run(
+              [ global_step, loss, predictions, labels, ler, decodedPrediction,
+              final_state_stackb,final_state_stackf],feed)
             
             examples_per_second = len(labels_val) / seconds_per_batch
             
