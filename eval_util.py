@@ -19,7 +19,7 @@ import tensorflow as tf
 
 from tensorflow.python.platform import gfile
    
-def levenshtein(source, target):
+def levenshtein(source, target, mat = None):
     #todos:\/
     #add different score for changing a letter into another
     #add different score for adding a letter before and after another letter ?
@@ -34,12 +34,19 @@ def levenshtein(source, target):
     # ('c', 'a', 't', 's') - numpy uses them as values by default.
     source = np.array(tuple(source))
     target = np.array(tuple(target))
+    
+    mm = np.ones((len(source),len(target)))
+    mat = getMat()
+    if mat is not None:
+        for i,p1 in enumerate(source):
+            for j,p2 in enumerate(target):
+                mm[i,j] = mat[p1,p2]
 
     # We use a dynamic programming algorithm, but with the
     # added optimization that we only need the last two rows
     # of the matrix.
-    previous_row = np.arange(target.size + 1)
-    for s in source:
+    previous_row = np.arange(target.size + 1).astype("float32")
+    for i,s in enumerate(source):
         # Insertion (target grows longer than source):
         current_row = previous_row + 1
 
@@ -48,7 +55,7 @@ def levenshtein(source, target):
         # are different (cost of 1), or are the same (cost of 0).
         current_row[1:] = np.minimum(
                 current_row[1:],
-                np.add(previous_row[:-1], target != s))
+                np.add(previous_row[:-1], mm[i,:]*(target != s)))
 
         # Deletion (target grows shorter than source):
         current_row[1:] = np.minimum(
@@ -58,6 +65,26 @@ def levenshtein(source, target):
         previous_row = current_row
 
     return previous_row[-1]
+
+def getMat():
+    voc = get_characters()
+    #del voc[''];del voc[' '];del voc['%%']
+    mat = np.ones((len(voc),len(voc)))
+    pairs = [['a','o'],['g','y'],['l','t'],['f','t'],['q','p'],['b','d'],['m','n'],
+            ['g','q'],['q','j'],['v','w'],['v','r'],['x','y'],['i','j'],['u','r'],
+            ['u','a'],['u','o'],['c','u']]
+    chains = [['l','t','f'],['o','u','a'],['e','l'],['h','m','n'],['i','j'],['q','p','y','j'],
+             ['r','w','v'],['d','a','g'],['x','y'],['b','d'],['s','f']]
+    for p1,p2 in pairs:
+        mat[voc[p1],voc[p2]] -= 0.02
+        mat[voc[p2],voc[p1]] -= 0.02
+    for p in chains:
+        for p1 in p:
+            for p2 in p:
+                if p1!=p2:
+                    mat[voc[p1],voc[p2]] -= 0.01
+                    mat[voc[p2],voc[p1]] -= 0.01
+    return mat
 
 def read_vocab(path):#'vocabulary.txt'
     if not tf.gfile.Exists(path):
@@ -85,7 +112,7 @@ def get_characters():
     vocabulary['%%'] = 0 
     
     c = '0'
-    
+    '''
     while ord(c) != ord('9')+1:
         vocabulary[c] = nrC
         nrC = nrC + 1
@@ -95,18 +122,18 @@ def get_characters():
         vocabulary[c] = nrC
         nrC = nrC + 1
         c = chr(ord(c)+1)
-    
+    '''
     c = 'a'
     while ord(c) != ord('z')+1:
         vocabulary[c] = nrC
         nrC = nrC + 1
         c = chr(ord(c)+1)
-    
+    '''
     cr = [',','.','"','\'',' ','-','#','(',')',';','?',':','*','&','!','/','']
     for c in cr:
         vocabulary[c] = nrC
         nrC = nrC + 1
-    
+    '''
     vocabulary[' '] = nrC
     nrC += 1
     vocabulary[''] = nrC
