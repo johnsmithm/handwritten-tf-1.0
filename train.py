@@ -436,10 +436,31 @@ class Trainer(object):
         labels = tf.get_collection("labels")[0]
         train_batch = tf.get_collection("train_batch")[0]
         train_op = tf.get_collection("train_op")[0]
-        reset_state_stackb = tf.get_collection("reset_state_stackb")[0]
-        reset_state_stackf = tf.get_collection("reset_state_stackf")[0]
-        final_state_stackb = tf.get_collection("final_state_stackb")[0]
-        final_state_stackf = tf.get_collection("final_state_stackf")[0]
+        ilh = [];ilc = []
+        reset_state_stackb = {}
+        for i in range(FLAGS.layers):        
+            reset_state_stackb['h{}'.format(i)]=tf.get_collection("reset_state_stackb_{}_h".format(i))[0]
+            reset_state_stackb['c{}'.format(i)]=tf.get_collection("reset_state_stackb_{}_c".format(i))[0]
+            #ilh.append(reset_state_stackb['h{}'.format(i)])
+            #ilc.append(reset_state_stackb['c{}'.format(i)])
+        reset_state_stackf = {}
+        for i in range(FLAGS.layers):        
+            reset_state_stackf['h{}'.format(i)]=tf.get_collection("reset_state_stackf_{}_h".format(i))[0]
+            reset_state_stackf['c{}'.format(i)]=tf.get_collection("reset_state_stackf_{}_c".format(i))[0]
+        final_state_stackf = {}
+        flh = [];flc = []
+        for i in range(FLAGS.layers):        
+            final_state_stackf['h{}'.format(i)]=tf.get_collection("final_state_stackf_{}_h".format(i))[0]
+            final_state_stackf['c{}'.format(i)]=tf.get_collection("final_state_stackf_{}_c".format(i))[0]
+        final_state_stackb = {}
+        for i in range(FLAGS.layers):        
+            final_state_stackb['h{}'.format(i)]=tf.get_collection("final_state_stackb_{}_h".format(i))[0]
+            final_state_stackb['c{}'.format(i)]=tf.get_collection("final_state_stackb_{}_c".format(i))[0]
+            
+        #reset_state_stackb = tf.get_collection("reset_state_stackb")[0]
+        #reset_state_stackf = tf.get_collection("reset_state_stackf")[0]
+        #final_state_stackb = tf.get_collection("final_state_stackb")[0]
+        #final_state_stackf = tf.get_collection("final_state_stackf")[0]
         decodedPrediction = []
         for i in range(FLAGS.beam_size):
             decodedPrediction.append(tf.get_collection("decodedPrediction{}".format(i))[0])
@@ -477,13 +498,13 @@ class Trainer(object):
           #todo: add test/evaluation here--add placeholder
         
           feed = {}
-          for i, (c, h) in enumerate(reset_state_stackf):
-                    feed[c] = state_stackf[i].c
-                    feed[h] = state_stackf[i].h
-          for i, (c, h) in enumerate(reset_state_stackb):
-                    feed[c] = state_stackb[i].c
-                    feed[h] = state_stackb[i].h
-
+          for i in range(FLAGS.layers):
+                    feed[reset_state_stackb['h{}'.format(i)]] = state_stackb['h{}'.format(i)]
+                    feed[reset_state_stackb['h{}'.format(i)]] = state_stackb['h{}'.format(i)]
+          for i in range(FLAGS.layers):
+                    feed[reset_state_stackf['h{}'.format(i)]] = state_stackf['h{}'.format(i)]
+                    feed[reset_state_stackf['h{}'.format(i)]] = state_stackf['h{}'.format(i)]
+                    
           if self.max_steps and self.max_steps <= global_step_val:
             self.max_steps_reached = True
 

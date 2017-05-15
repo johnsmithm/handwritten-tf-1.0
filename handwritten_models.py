@@ -619,8 +619,14 @@ class LSTMCTCModel(models.BaseModel):
             
     self.reset_state_stackb = stackb.zero_state(FLAGS.batch_size, dtype=tf.float32)
     
-    tf.add_to_collection("reset_state_stackb", self.reset_state_stackb)
-    tf.add_to_collection("reset_state_stackf", self.reset_state_stackf)
+    #tf.add_to_collection("reset_state_stackb", self.reset_state_stackb)
+    #tf.add_to_collection("reset_state_stackf", self.reset_state_stackf)
+    for i, (c, h) in enumerate(self.reset_state_stackb):        
+        tf.add_to_collection("reset_state_stackb_{}_c".format(i), c)
+        tf.add_to_collection("reset_state_stackb_{}_h".format(i), h)
+    for i, (c, h) in enumerate(self.reset_state_stackf):        
+        tf.add_to_collection("reset_state_stackf_{}_c".format(i), c)
+        tf.add_to_collection("reset_state_stackf_{}_h".format(i), h)
     
     if True:
         outputs, (self.state_fw, self.state_bw)  = tf.nn.bidirectional_dynamic_rnn(stackf, stackb, x,
@@ -635,8 +641,14 @@ class LSTMCTCModel(models.BaseModel):
                                                                                  initial_state_fw=self.reset_state_stackf,
                                                                                  initial_state_bw=self.reset_state_stackb)
     
-    tf.add_to_collection("final_state_stackb", self.state_bw)
-    tf.add_to_collection("final_state_stackf", self.state_fw)
+    for i, (c, h) in enumerate(self.state_bw):        
+        tf.add_to_collection("final_state_stackb_{}_c".format(i), c)
+        tf.add_to_collection("final_state_stackb_{}_h".format(i), h)
+    for i, (c, h) in enumerate(self.state_fw):        
+        tf.add_to_collection("final_state_stackf_{}_c".format(i), c)
+        tf.add_to_collection("final_state_stackf_{}_h".format(i), h)
+    #tf.add_to_collection("final_state_stackb", self.state_bw)
+    #tf.add_to_collection("final_state_stackf", self.state_fw)
     #print(outputs[0].get_shape().as_list(),'outputs')
     if True:
         y_predict = tf.reshape(tf.concat(outputs, 2), [-1, 2*FLAGS.hidden])
