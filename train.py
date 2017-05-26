@@ -498,12 +498,13 @@ class Trainer(object):
           #todo: add test/evaluation here--add placeholder
         
           feed = {}
-          for i in range(FLAGS.layers):
-                    feed[reset_state_stackb['h{}'.format(i)]] = state_stackb['h{}'.format(i)]
-                    feed[reset_state_stackb['h{}'.format(i)]] = state_stackb['h{}'.format(i)]
-          for i in range(FLAGS.layers):
-                    feed[reset_state_stackf['h{}'.format(i)]] = state_stackf['h{}'.format(i)]
-                    feed[reset_state_stackf['h{}'.format(i)]] = state_stackf['h{}'.format(i)]
+          if False:
+              for i in range(FLAGS.layers):
+                        feed[reset_state_stackb['h{}'.format(i)]] = state_stackb['h{}'.format(i)]
+                        feed[reset_state_stackb['h{}'.format(i)]] = state_stackb['h{}'.format(i)]
+              for i in range(FLAGS.layers):
+                        feed[reset_state_stackf['h{}'.format(i)]] = state_stackf['h{}'.format(i)]
+                        feed[reset_state_stackf['h{}'.format(i)]] = state_stackf['h{}'.format(i)]
                     
           if self.max_steps and self.max_steps <= global_step_val:
             self.max_steps_reached = True
