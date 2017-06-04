@@ -809,8 +809,8 @@ class MDLSTMCTCModel(models.BaseModel):
             net = slim.conv2d(x, 32, [5, 5], scope='conv1')
             net = mdlstm.tanAndSum(64,net,'l1',sh=[2,2])
             #net = slim.max_pool2d(net, [2, 2], scope='pool1')
-            net = slim.conv2d(net, 124, [5, 5], scope='conv2')
-            net = mdlstm.tanAndSum(256,net,'l2',sh=[2,2])
+            net = slim.conv2d(net, 64, [5, 5], scope='conv2')
+            net = mdlstm.tanAndSum(76,net,'l2',sh=[2,2])
             #net = slim.max_pool2d(net, [2, 2], scope='pool2')
     
     shape = net.get_shape().as_list()
