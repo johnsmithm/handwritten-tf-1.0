@@ -1,17 +1,3 @@
-# -*- coding: utf-8 -*-
-# Copyright 2016 Google Inc. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS-IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 """Contains model definitions."""
 import math
@@ -22,6 +8,8 @@ import utils
 import numpy as np
 from tensorflow import flags
 import tensorflow.contrib.slim as slim
+
+import mdlstm
 
 FLAGS = flags.FLAGS
 flags.DEFINE_integer(
@@ -176,7 +164,6 @@ class DNC:
 
     #2
     #retreives the writing allocation weighting based on the usage free list
-    #The ‘usage’ of each location is represented as a number between 0 and 1, 
     #and a weighting that picks out unused locations is delivered to the write head. 
     
     # independent of the size and contents of the memory, meaning that 
@@ -784,3 +771,68 @@ class RNNCTCModel(models.BaseModel):
         #print(pre.get_shape().as_list(),'last')
         #pre.name = 'preee'
     return {"predictions": pre}
+
+class MDLSTMCTCModel(models.BaseModel):
+  """Logistic model with L2 regularization."""
+
+  def create_model(self, model_input, seq_len, vocab_size, target=None, is_training=True,keep_prob=1., **unused_params):
+    """Creates a logistic model.
+
+    Args:
+      model_input: 'batch' x 'time_steps' x'num_features' matrix of input features.
+      vocab_size: The number of classes in the dataset.
+
+    Returns:
+      A dictionary with a tensor containing the probability predictions of the
+      model in the 'predictions' key. The dimensions of the tensor are
+      batch_size x num_classes."""
+    imageInputs1  = tf.cast(model_input, tf.float32)
+    seq_lens = tf.cast(seq_len, tf.int32)      
+    #targets = tf.cast(target, tf.int32)      
+    seq_lens1 = tf.reshape(seq_lens,[FLAGS.batch_size])  
+    self.keep_prob = keep_prob
+    self.train_b = is_training
+    
+    imageInputs2 = tf.reshape(imageInputs1 , [FLAGS.batch_size,FLAGS.height, FLAGS.Bwidth,FLAGS.input_chanels])
+    
+    batch_norm_params = {'is_training': is_training, 'decay': 0.9, 'updates_collections': None}
+    with slim.arg_scope([slim.conv2d, slim.fully_connected],
+                            normalizer_fn=slim.batch_norm,
+                            normalizer_params=batch_norm_params):
+            x = imageInputs2#tf.reshape(inputs, [-1, self.height, self.width, 1])
+
+            # For slim.conv2d, default argument values are like
+            # normalizer_fn = None, normalizer_params = None, <== slim.arg_scope changes these arguments
+            # padding='SAME', activation_fn=nn.relu,
+            # weights_initializer = initializers.xavier_initializer(),
+            # biases_initializer = init_ops.zeros_initializer,
+            net = slim.conv2d(x, 32, [5, 5], scope='conv1')
+            net = mdlstm.tanAndSum(64,net,'l1',sh=[2,2])
+            #net = slim.max_pool2d(net, [2, 2], scope='pool1')
+            net = slim.conv2d(net, 124, [5, 5], scope='conv2')
+            net = mdlstm.tanAndSum(256,net,'l2',sh=[2,2])
+            #net = slim.max_pool2d(net, [2, 2], scope='pool2')
+    
+    shape = net.get_shape().as_list()
+    batch_size = shape[0]
+    #bat, h, w , chanels
+    outputs =  tf.transpose(net, [2,0,1,3])
+    outputs =  tf.reshape(outputs, [-1, shape[1]*shape[3]])
+            
+    with tf.name_scope('Train'):
+        with tf.variable_scope("ctc_loss-1") as scope:
+            myInitializer = tf.truncated_normal_initializer(mean=0., stddev=.075, seed=None, dtype=tf.float32)
+        
+            W = tf.get_variable('w',[shape[1]*shape[3],vocab_size],initializer=myInitializer)
+            # Zero initialization
+            b = tf.get_variable('b', shape=[vocab_size],initializer=myInitializer)
+
+        tf.summary.histogram('histogram-b-ctc', b)
+        tf.summary.histogram('histogram-w-ctc', W)
+
+    logits = tf.matmul(outputs, W) +  b 
+    
+
+    # Reshaping back to the original shape
+    logits = tf.reshape(logits, [ -1,batch_size, vocab_size]) 
+    return {"predictions": logits}

@@ -319,6 +319,8 @@ def build_graph(reader,
           seq_len1 = tf.maximum(tf.minimum(\
         tf.floor_div(tf.maximum(seq_len1-FLAGS.width+2*FLAGS.stride,FLAGS.stride),FLAGS.stride),FLAGS.slices),1)
           seq_len1 = tf.ones([FLAGS.batch_size],dtype=tf.int32)*FLAGS.slices
+      if FLAGS.model == 'MDLSTMCTCModel':          
+        seq_len1 = tf.ones([FLAGS.batch_size],dtype=tf.int32)*predictions.get_shape().as_list()[0]
       label_loss = label_loss_fn.calculate_loss(predictions, target, seq_len1)
     tf.summary.scalar("label_loss", label_loss)
 
@@ -438,25 +440,26 @@ class Trainer(object):
         train_op = tf.get_collection("train_op")[0]
         ilh = [];ilc = []
         reset_state_stackb = {}
-        for i in range(FLAGS.layers):        
-            reset_state_stackb['h{}'.format(i)]=tf.get_collection("reset_state_stackb_{}_h".format(i))[0]
-            reset_state_stackb['c{}'.format(i)]=tf.get_collection("reset_state_stackb_{}_c".format(i))[0]
-            #ilh.append(reset_state_stackb['h{}'.format(i)])
-            #ilc.append(reset_state_stackb['c{}'.format(i)])
-        reset_state_stackf = {}
-        for i in range(FLAGS.layers):        
-            reset_state_stackf['h{}'.format(i)]=tf.get_collection("reset_state_stackf_{}_h".format(i))[0]
-            reset_state_stackf['c{}'.format(i)]=tf.get_collection("reset_state_stackf_{}_c".format(i))[0]
-        final_state_stackf = {}
-        flh = [];flc = []
-        for i in range(FLAGS.layers):        
-            final_state_stackf['h{}'.format(i)]=tf.get_collection("final_state_stackf_{}_h".format(i))[0]
-            final_state_stackf['c{}'.format(i)]=tf.get_collection("final_state_stackf_{}_c".format(i))[0]
-        final_state_stackb = {}
-        for i in range(FLAGS.layers):        
-            final_state_stackb['h{}'.format(i)]=tf.get_collection("final_state_stackb_{}_h".format(i))[0]
-            final_state_stackb['c{}'.format(i)]=tf.get_collection("final_state_stackb_{}_c".format(i))[0]
-            
+        if FLAGS.model != 'MDLSTMCTCModel': 
+            for i in range(FLAGS.layers):        
+                reset_state_stackb['h{}'.format(i)]=tf.get_collection("reset_state_stackb_{}_h".format(i))[0]
+                reset_state_stackb['c{}'.format(i)]=tf.get_collection("reset_state_stackb_{}_c".format(i))[0]
+                #ilh.append(reset_state_stackb['h{}'.format(i)])
+                #ilc.append(reset_state_stackb['c{}'.format(i)])
+            reset_state_stackf = {}
+            for i in range(FLAGS.layers):        
+                reset_state_stackf['h{}'.format(i)]=tf.get_collection("reset_state_stackf_{}_h".format(i))[0]
+                reset_state_stackf['c{}'.format(i)]=tf.get_collection("reset_state_stackf_{}_c".format(i))[0]
+            final_state_stackf = {}
+            flh = [];flc = []
+            for i in range(FLAGS.layers):        
+                final_state_stackf['h{}'.format(i)]=tf.get_collection("final_state_stackf_{}_h".format(i))[0]
+                final_state_stackf['c{}'.format(i)]=tf.get_collection("final_state_stackf_{}_c".format(i))[0]
+            final_state_stackb = {}
+            for i in range(FLAGS.layers):        
+                final_state_stackb['h{}'.format(i)]=tf.get_collection("final_state_stackb_{}_h".format(i))[0]
+                final_state_stackb['c{}'.format(i)]=tf.get_collection("final_state_stackb_{}_c".format(i))[0]
+
         #reset_state_stackb = tf.get_collection("reset_state_stackb")[0]
         #reset_state_stackf = tf.get_collection("reset_state_stackf")[0]
         #final_state_stackb = tf.get_collection("final_state_stackb")[0]
@@ -485,8 +488,8 @@ class Trainer(object):
 
       try:
         
-        state_stackf = sess.run(reset_state_stackf)
-        state_stackb = sess.run(reset_state_stackb)
+        #state_stackf = sess.run(reset_state_stackf)
+        #state_stackb = sess.run(reset_state_stackb)
         logging.info("%s: Entering training loop.", task_as_string(self.task))
         while (not sv.should_stop()) and (not self.max_steps_reached):
 
@@ -510,16 +513,13 @@ class Trainer(object):
             self.max_steps_reached = True
 
           if self.is_master and global_step_val%FLAGS.display_step==0:
-            global_step_val, loss_val, predictions_val, labels_val, labelRateError, decodedPr,\
-            state_stackb,state_stackf = sess.run(
-              [ global_step, loss, predictions, labels, ler, decodedPrediction,
-               final_state_stackb,final_state_stackf],feed)
+            global_step_val, loss_val, predictions_val, labels_val, labelRateError, decodedPr = sess.run(
+              [ global_step, loss, predictions, labels, ler, decodedPrediction
+               ],feed)
             
             feed[train_batch]=False
-            global_step_val_te, loss_val_te, predictions_val_te, labels_val_te, labelRateError_te, decodedPr_te,\
-            state_stackb,state_stackf= sess.run(
-              [ global_step, loss, predictions, labels, ler, decodedPrediction,
-              final_state_stackb,final_state_stackf],feed)
+            global_step_val_te, loss_val_te, predictions_val_te, labels_val_te, labelRateError_te, decodedPr_te = sess.run(
+              [ global_step, loss, predictions, labels, ler, decodedPrediction],feed)
             
             examples_per_second = len(labels_val) / seconds_per_batch
             
