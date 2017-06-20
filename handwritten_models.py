@@ -10,6 +10,7 @@ from tensorflow import flags
 import tensorflow.contrib.slim as slim
 
 import mdlstm
+import lstm2d
 
 FLAGS = flags.FLAGS
 flags.DEFINE_integer(
@@ -800,18 +801,27 @@ class MDLSTMCTCModel(models.BaseModel):
                             normalizer_fn=slim.batch_norm,
                             normalizer_params=batch_norm_params):
             x = imageInputs2#tf.reshape(inputs, [-1, self.height, self.width, 1])
-
+            
             # For slim.conv2d, default argument values are like
             # normalizer_fn = None, normalizer_params = None, <== slim.arg_scope changes these arguments
             # padding='SAME', activation_fn=nn.relu,
             # weights_initializer = initializers.xavier_initializer(),
             # biases_initializer = init_ops.zeros_initializer,
-            net = slim.conv2d(x, 32, [5, 5], scope='conv1')
-            net = mdlstm.tanAndSum(64,net,'l1',sh=[2,2])
-            #net = slim.max_pool2d(net, [2, 2], scope='pool1')
+            net = slim.conv2d(x, 16, [5, 5], scope='conv1')
+            net = slim.max_pool2d(net, [2, 2], scope='pool1')
+            net  = lstm2d.separable_lstm( net, 32, kernel_size=None, scope='lstm2d-1')
+            #net = mdlstm.tanAndSum(32,net,'l1',sh=[2,2])
             net = slim.conv2d(net, 64, [5, 5], scope='conv2')
-            net = mdlstm.tanAndSum(76,net,'l2',sh=[2,2])
+            net = slim.max_pool2d(net, [2, 2], scope='pool2')
+            #net = mdlstm.tanAndSum(124,net,'l2',sh=[2,2])
+            net  = lstm2d.separable_lstm( net, 124, kernel_size=None, scope='lstm2d-2')#separable_lstm, horizontal_lstm
+            
+            #net = slim.dropout(net, is_training=is_training, scope='dropout3')
+        
             #net = slim.max_pool2d(net, [2, 2], scope='pool2')
+    
+    #net = mdlstm.tanAndSumConv(16,imageInputs2,'layer1',[2,2],is_training,[5,5],32,0.7)    
+    #net = mdlstm.tanAndSumConv(64,net,'layer2',[2,2],is_training,[5,5],64,0.7)
     
     shape = net.get_shape().as_list()
     batch_size = shape[0]
@@ -823,14 +833,20 @@ class MDLSTMCTCModel(models.BaseModel):
         with tf.variable_scope("ctc_loss-1") as scope:
             myInitializer = tf.truncated_normal_initializer(mean=0., stddev=.075, seed=None, dtype=tf.float32)
         
-            W = tf.get_variable('w',[shape[1]*shape[3],vocab_size],initializer=myInitializer)
+            W = tf.get_variable('w',[shape[1]*shape[3],200],initializer=myInitializer)
             # Zero initialization
-            b = tf.get_variable('b', shape=[vocab_size],initializer=myInitializer)
+            b = tf.get_variable('b', shape=[200],initializer=myInitializer)
+            
+            W1 = tf.get_variable('w1',[200,vocab_size],initializer=myInitializer)
+            # Zero initialization
+            b1 = tf.get_variable('b1', shape=[vocab_size],initializer=myInitializer)
 
         tf.summary.histogram('histogram-b-ctc', b)
         tf.summary.histogram('histogram-w-ctc', W)
 
     logits = tf.matmul(outputs, W) +  b 
+    logits = slim.dropout(logits, is_training=is_training, scope='dropout4')
+    logits = tf.matmul(logits, W1) +  b1 
     
 
     # Reshaping back to the original shape

@@ -17,6 +17,7 @@ import json
 import os
 import time
 
+import numpy as np
 import eval_util
 import export_model
 import losses
@@ -183,7 +184,8 @@ def get_input_data_tensors(reader,
   logging.info("Using batch size of " + str(batch_size) + " for {}ing.".format(nameT))
   with tf.name_scope(nameT+"_input"):
     print(data_pattern)
-    files = gfile.Glob(data_pattern)
+    files = [data_pattern.format(j) for j in range(50)] if nameT=='train' else [data_pattern.format(j) for j in range(50,60)] #gfile.Glob(data_pattern)
+    #print(files)
     if not files:
       raise IOError("Unable to find {}ing files. data_pattern='".format(nameT) +
                     data_pattern + "'.")
@@ -363,7 +365,7 @@ def build_graph(reader,
 
     tf.add_to_collection("global_step", global_step)
     tf.add_to_collection("loss", label_loss)
-    tf.add_to_collection("predictions", predictions)
+    tf.add_to_collection("predictions", tf.nn.softmax(predictions))
     tf.add_to_collection("input_batch", imageInput)
     tf.add_to_collection("seq_len", seq_len)
     tf.add_to_collection("train_batch", train_batch)
@@ -482,6 +484,11 @@ class Trainer(object):
     
     vocabulary = eval_util.read_vocab(FLAGS.vocab_path)
     vocabulary = sorted(vocabulary, key=lambda word: len(word))
+    caracters = eval_util.get_characters()
+    trie = eval_util.get_trie(vocabulary)
+    on, bi, tr = eval_util.get_n_gram(vocabulary,29)
+    def tranz(x):
+        return eval_util.bi_gram_model(x, tr+0.01, bi+0.01, on)
     
     logging.info("%s: Starting managed session.", task_as_string(self.task))
     with sv.managed_session(target, config=self.config) as sess:
@@ -525,14 +532,26 @@ class Trainer(object):
             
             
             if global_step_val % FLAGS.display_step_lme == 0:
-                lme, newGuess = eval_util.calculate_models_error_withLanguageModel(decodedPr, 
-                                                                                   labels_val,
-                                                                                   vocabulary, 
-                                                                                   FLAGS.beam_size)
-                lme_te, newGuess_te = eval_util.calculate_models_error_withLanguageModel(decodedPr_te,
-                                                                                         labels_val_te,
-                                                                                         vocabulary, 
-                                                                                         FLAGS.beam_size)
+                lme = 0
+                #lme, newGuess = eval_util.calculate_models_error_withLanguageModel(decodedPr, 
+                #                                                                   labels_val,
+                #                                                                   vocabulary, 
+                #                                                                   FLAGS.beam_size)
+                #lme_te, newGuess_te = eval_util.calculate_models_error_withLanguageModel(decodedPr_te,
+                #                                                                         labels_val_te,
+                #                                                                         vocabulary, 
+                #                                                                         FLAGS.beam_size)
+                lmd_pred = eval_util.beam_search_dict(predictions_val_te, tranz,bk=30)
+                model_pred, lme = eval_util.dict_model(lmd_pred, lambda x: eval_util.trie_exist(trie,x),
+                                                       labels_val_te, vocabulary=None,bk=30)
+                model_pred, err = eval_util.dict_model(eval_util.mkP(decodedPr_te), lambda x: eval_util.trie_exist(trie,x),
+                                                       labels_val_te, vocabulary=None,bk=30)
+                #print(predictions_val_te.shape, np.sum(predictions_val_te[0][0]))
+                #for llk in range(1):
+                #    print('custom beam',[eval_util.getIndex(j,caracters) for j in lmd_pred[llk][0][2] if j])
+                #    #print('lme',err,[eval_util.getIndex(j,caracters) for j in model_pred[llk] if j])
+                eval_util.show_prediction(decodedPr_te, labels_val_te,lmP=model_pred,top_k=3)
+                lme_te = err
             else:
                 lme,  lme_te = -1., -1.
             if False:

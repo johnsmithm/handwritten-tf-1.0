@@ -1,5 +1,7 @@
 import tensorflow as tf
 
+import tensorflow.contrib.slim as slim
+
 def ln(tensor, scope = None, epsilon = 1e-5):
     """ Layer normalizes a 2D tensor along its second axis """
     assert(len(tensor.get_shape()) == 2)
@@ -186,6 +188,31 @@ def tanAndSum(rnn_size,input_data,scope,sh):
         outs = tf.stack(outs, axis=0)
         mean = tf.reduce_mean(outs, 0)
         return tf.nn.tanh(mean)
+    
+def tanAndSumConv(rnn_size,input_data,scope,sh,is_training,wid,outChanels,dropout):
+        outs = []
+        batch_norm_params = {'is_training': is_training, 'decay': 0.9, 'updates_collections': None}
+        with slim.arg_scope([slim.conv2d, slim.fully_connected],
+                            normalizer_fn=slim.batch_norm,
+                            normalizer_params=batch_norm_params):
+            for i in range(2):
+                for j in range(2):
+                    dims = []
+                    if i!=0:
+                        dims.append(1)
+                    if j!=0:
+                        dims.append(2)                 
+                    outputs  = multiDimentionalRNN_whileLoop(rnn_size,input_data,sh,
+                                                           dims,scope+"-multi-l{0}".format(i*2+j))
+                    outputs = slim.conv2d(outputs, outChanels, [wid[0], wid[1]], scope=scope+'-conv-{}'.format(i*2+j))
+                    if dropout!=1.:
+                        outputs = slim.dropout(outputs,dropout, is_training=is_training, scope=scope+'-dropout-{}'.format(i*2+j))
+                    outs.append(outputs)
+        #return outs
+        outs = tf.stack(outs, axis=0)
+        mean = tf.reduce_mean(outs, 0)
+        return tf.nn.tanh(mean)
+    
 if False:
     graph = tf.Graph()
     with graph.as_default():
