@@ -12,3 +12,15 @@ In order to see statistics in tensorboard:
 tensorboard --logdir=separable_lstm --port=8080
 ```
 
+<center>
+<img src="./labelrateerror.png">
+label rate error for test images  
+</center>
+
+<center>
+<img src="./loss.png">
+ctc loss for test images 
+</center>
+
+
+In order to see some prediction example checkout the jupyter notebook
