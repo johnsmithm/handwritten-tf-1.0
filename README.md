@@ -1,4 +1,4 @@
-##Tensorflow implementation of handwritten sequense of small letter recognition.
+#Tensorflow implementation of handwritten sequense of small letter recognition.
 
 The handwritten dataset used is IAM.
 
@@ -13,12 +13,12 @@ tensorboard --logdir=separable_lstm --port=8080
 ```
 
 <center>
-<img src="./labelrateerror.png">
+<img src="./loss.png">
 label rate error for test images  
 </center>
 
 <center>
-<img src="./loss.png">
+<img src="./labelrateerror.png">
 ctc loss for test images 
 </center>
 
