@@ -100,10 +100,15 @@ class AIMAggregatedFeatureReader(BaseReader):
         # now return the converted data
     imageInput = features['imageInput']
     seq_len     = features['seq_len']
-    target     = features['target']'''
+    target     = features['target']
+    
+    python train.py --slices 55 --width 12 --stride 1  --Bwidth 350 --vocabulary_size 29 --height 25 --train_data_pattern test-batch1/handwritten-test-{}.tfrecords --train_dir models-feds --test_data_pattern test-batch1/handwritten-test-{}.tfrecords  --max_steps 20 --batch_size 20 --beam_size 1 --input_chanels 1 --start_new_model --rnn_cell LSTM --model LSTMCTCModel --num_epochs 6000
+    
+    '''
     d = self.height*self.slices*self.width*self.input_chanels if self.stride ==-1 else self.height*self.width*self.input_chanels
     if self.width==1:
         d = self.height*self.slices*self.width*self.input_chanels
+    print(d,'*'*20,self.height,self.width,self.input_chanels)
     feature_map = {'seq_len': tf.FixedLenFeature([1], tf.int64),
                 'target': tf.VarLenFeature(tf.int64),     
                 'imageInput': tf.FixedLenFeature([d], tf.float32)}

@@ -36,7 +36,7 @@ def levenshtein(source, target, mat = None):
     target = np.array(tuple(target))
     
     mm = np.ones((len(source),len(target)))
-    mat = getMat()
+    #mat = getMat()
     if mat is not None:
         for i,p1 in enumerate(source):
             for j,p2 in enumerate(target):
@@ -205,14 +205,14 @@ def calculate_models_error_withLanguageModel(decodedPr, labels_val, vocabulary,t
     err /= len(labels_val)
     return err, voc_guess
 
-def get_trie(vocabulary):
+def get_trie(vocabulary, sp=56):
     Trie = {}
     def add_trie(trie, w, n = 0):
 
         if n == len(w):
             trie[0] = 1
             return
-        if w[n] == 27:
+        if w[n] == sp:
             add_trie(Trie, w[n+1:] )
             return
         if w[n] not in trie:
@@ -256,6 +256,8 @@ def get_n_gram(vocab, vocab_size):
     nrL = 0
     for w in vocab:
         nrL+=1
+        if w[0]>vocab_size:
+            print w[0]
         one_gram[w[0]]+=1
         for j in range(1,len(w)):
             nrL+=1
@@ -303,10 +305,10 @@ def beam_search_dict(preds, trans=bi_gram_model, voc_size=29, k=5, bk = 100):
                         bn[j].insert(0,[pred[j,l]*trans(w[2]+[l])*(B[j][q][0]+B[j][q][1]),
                                0.0,
                                w[2]+[l]])
-                        if len(bn[j]) > k:
+                        if len(bn[j]) > bk:
                             bn[j].sort(key=lambda x: x[0]+x[1], reverse=True)   
-                            while len(bn[j])>k:
-                                del bn[j][k]
+                            while len(bn[j])>bk:
+                                del bn[j][bk]
                             
                             
                             #bn[j] = bn[j][:k]
@@ -347,7 +349,7 @@ def dict_model(bPreds, is_word, labels_val, vocabulary=None, n_gram=None,bk=100)
             for l in pred:
                 if l==0:
                     continue
-                if l == 27 and len(word)!=0:
+                if l == 27 and len(word) != 0:
                     #print('.'*10)
                     words.append([word, is_word(word)])
                     if words[-1][1]:
@@ -393,6 +395,16 @@ def dict_model(bPreds, is_word, labels_val, vocabulary=None, n_gram=None,bk=100)
         err += levenshtein(truth, nPreds[k])/float(len(truth))
     err /= len(labels_val[:bk])*1.0
     return nPreds, err
+
+def get_error(labels_val, nPreds, bk=100):
+    err = 0.0
+    for k,truth in  enumerate(labels_val[:bk]):
+        truth = cut_zeros(truth)
+        #print(truth)
+        #print(nPreds[k])
+        err += levenshtein(truth, nPreds[k])/float(len(truth))
+    err /= len(labels_val[:bk])*1.0
+    return err
 
 def mkP(decoder):
     pr = [[] for _ in range(decoder[0].shape[0])]

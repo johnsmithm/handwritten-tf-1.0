@@ -184,7 +184,7 @@ def get_input_data_tensors(reader,
   logging.info("Using batch size of " + str(batch_size) + " for {}ing.".format(nameT))
   with tf.name_scope(nameT+"_input"):
     print(data_pattern)
-    files = [data_pattern.format(j) for j in range(50)] if nameT=='train' else [data_pattern.format(j) for j in range(50,60)] #gfile.Glob(data_pattern)
+    files = [data_pattern.format(j) for j in range(3)] if nameT=='train' else [data_pattern.format(j) for j in range(0,3)] #gfile.Glob(data_pattern)
     #print(files)
     if not files:
       raise IOError("Unable to find {}ing files. data_pattern='".format(nameT) +
@@ -295,7 +295,8 @@ def build_graph(reader,
   elif FLAGS.width == 1:
       imageInput1 = tf.reshape(imageInput , [FLAGS.batch_size,FLAGS.slices,FLAGS.height])
   else:
-      imageInput1 = tf.reshape(imageInput , [FLAGS.batch_size,FLAGS.height, FLAGS.Bwidth,FLAGS.input_chanels]) 
+      imageInput1 = tf.reshape(imageInput , [FLAGS.batch_size,FLAGS.height, FLAGS.Bwidth,FLAGS.input_chanels])
+      print(imageInput1)
   seq_len1 = tf.reshape(seq_len, [FLAGS.batch_size])
   tf.summary.histogram("model/input_raw", imageInput)
   

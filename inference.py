@@ -177,7 +177,7 @@ def inference(reader, train_dir, data_pattern, batch_size):
                                                                                    target_dense_val,
                                                                                    vocabulary, 
                                                                                    FLAGS.beam_size)
-          eval_util.show_prediction(predictions_val,target_dense_val,newGuess, 30)
+          eval_util.show_prediction(predictions_val,target_dense_val,None, 30)
           now = time.time()
           num_examples_processed += len(imageInput_val)
           num_classes = predictions_val[0].shape[1]
