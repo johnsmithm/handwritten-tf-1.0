@@ -542,17 +542,18 @@ class Trainer(object):
                 #                                                                         labels_val_te,
                 #                                                                         vocabulary, 
                 #                                                                         FLAGS.beam_size)
-                lmd_pred = eval_util.beam_search_dict(predictions_val_te, tranz,bk=30)
-                model_pred, lme = eval_util.dict_model(lmd_pred, lambda x: eval_util.trie_exist(trie,x),
-                                                       labels_val_te, vocabulary=None,bk=30)
-                model_pred, err = eval_util.dict_model(eval_util.mkP(decodedPr_te), lambda x: eval_util.trie_exist(trie,x),
-                                                       labels_val_te, vocabulary=None,bk=30)
+                if False:
+                    lmd_pred = eval_util.beam_search_dict(predictions_val_te, tranz,bk=30)
+                    model_pred, lme = eval_util.dict_model(lmd_pred, lambda x: eval_util.trie_exist(trie,x),
+                                                           labels_val_te, vocabulary=None,bk=30)
+                    model_pred, err = eval_util.dict_model(eval_util.mkP(decodedPr_te), lambda x: eval_util.trie_exist(trie,x),
+                                                           labels_val_te, vocabulary=None,bk=30)
                 #print(predictions_val_te.shape, np.sum(predictions_val_te[0][0]))
                 #for llk in range(1):
                 #    print('custom beam',[eval_util.getIndex(j,caracters) for j in lmd_pred[llk][0][2] if j])
                 #    #print('lme',err,[eval_util.getIndex(j,caracters) for j in model_pred[llk] if j])
-                eval_util.show_prediction(decodedPr_te, labels_val_te,lmP=model_pred,top_k=3)
-                lme_te = err
+                eval_util.show_prediction(decodedPr_te, labels_val_te,None,top_k=3)
+                #lme_te = err
             else:
                 lme,  lme_te = -1., -1.
             if False:
@@ -560,7 +561,7 @@ class Trainer(object):
 
             logging.info(
                 "%s: training step " + str(global_step_val) 
-                + "| LME: " +  ("%.2f" % lme) + "| LME-te: " +  ("%.2f" % lme_te) 
+               # + "| LME: " +  ("%.2f" % lme) + "| LME-te: " +  ("%.2f" % lme_te) 
                 + " ler: " +   ("%.2f" % labelRateError) + " ler-te: " +   ("%.2f" % labelRateError_te) 
                 + " Loss: " +  ("%.2f" % loss_val) + " Loss-te: " + str(loss_val_te),
                 task_as_string(self.task))
