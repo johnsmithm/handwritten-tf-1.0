@@ -7,9 +7,9 @@
 
 
 ### Dependencies
-Python 2.7
-Tensorflow 1.1
-
+* Python 2.7
+* Tensorflow 1.1
+* Note: I used that docker [image](https://github.com/floydhub/dl-docker/blob/master/Dockerfile.cpu) in order to run the project, change the tensorflow vertion to 1.1.0
 
 ### In order to make tfrecords files
 * open make tfRecods.ipynb notebook
