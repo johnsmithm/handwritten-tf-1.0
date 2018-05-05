@@ -19,6 +19,16 @@
 * note: sorted(glob.glob(pathXML+"*.xml"))[:200] will process just 200 images, change 200 to more
 * note: this notebook will create tf.records with images of shape: (350,25)
 
+
+### In order to run the training with multidimentional lstm: 
+```
+python train.py --slices 55 --width 12 --stride 1  --Bwidth 350 --vocabulary_size 29 \
+--height 25 --train_data_pattern test-batch1/handwritten-test-{}.tfrecords --train_dir models-feds \
+--test_data_pattern test-batch1/handwritten-test-{}.tfrecords  --max_steps 20 --batch_size 20 --beam_size 1 \
+--input_chanels 1 --start_new_model --rnn_cell LSTM --model MDLSTMCTCModel --num_epochs 6000
+```
+
+
 ### In order to run the training with slice-image lstm: 
 ```
 python train.py --slices 55 --width 12 --stride 1  --Bwidth 350 --vocabulary_size 29 \
